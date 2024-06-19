@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js - Basics</title>
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="nicknameModal" class="modal">
+        <div class="modal-content">
+          <label for="nicknameInput">Enter Nickname:</label>
+          <input type="text" id="nicknameInput">
+          <button id="nicknameSubmit">OK</button>
+        </div>
+      </div>
+      
+      <style>
+        .modal {
+          display: none;
+          position: fixed;
+          z-index: 1;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          overflow: auto;
+          background-color: rgb(0,0,0);
+          background-color: rgba(0,0,0,0.4);
+        }
+      
+        .modal-content {
+          background-color: #fefefe;
+          padding: 20px;
+          border: 1px solid #888;
+          margin-top:8%;
+          margin-left:10%;
+          width: 20%;
+          display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+      </style>
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+          <p id="tokensAchieved"></p>
+          <p id="practiceMode"></p>
+          <p id="attempts"></p>
+          <p id="nickname"></p>
+          <div id="guiContainer"></div>
+        </div>
+      </div>
+
+      <div id="FineModal" class="modal">
+        <div class="modal-content">
+            <p id="complimenti">Livello completato! Ecco le tue statistiche:</p>
+          <p id="tokensAchievedF"></p>
+          <p id="practiceModeF"></p>
+          <p id="attemptsF"></p>
+          <p id="nicknameF"></p>
+        </div>
+      </div>
+<audio id="backgroundMusic" src="./SpacePirates.mp3" loop></audio>
+<audio id="backgroundMusicPratic" src="./PraticMode.mp3" loop></audio>
+<input type="file" id="fileInput" style="display: none;">
+
+    <script type="importmap">
+        {
+          "imports": {
+            "three": "https://unpkg.com/three@0.150.1/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/"
+          }
+        }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+        import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+// MOSTRA IL MODAL INIZIALE PER INSERIRE IL NICKNAME
+window.onload = function() {
+  const modal = document.getElementById('nicknameModal');
+  const nicknameInput = document.getElementById('nicknameInput');
+  const submitButton = document.getElementById('nicknameSubmit');
+  const enterKey = document.getElementById('enterKey');
+  modal.style.display = 'block';
+  submitButton.onclick = function() {
+    const nickname = nicknameInput.value;
+    if (nickname) {
+      sessionStorage.setItem('nickname', nickname);
+      modal.style.display = 'none';
+    } else {
+      alert('Please enter a nickname');
+    }
+  }
+}
+//INIZIALIZZAZIONE THREE DI SCENA, CAMERA, RENDERER, CONTROLLI SULLA VISUALE(ORBIT)
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(5, 5, 30);
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.update();
+const textureLoader = new THREE.TextureLoader();
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.8;
+//CARICAMENTO SFONDO
+textureLoader.load('sfondo.jpg', function(texture) {
+    scene.background = texture;
+    scene.environment=texture;
+});
+//CARICAMENTO LUCI (AMBIENT, DIRECTIONAL E SPOTLIGHT CON RELATIVE OMBRE)
+const ambientLight = new THREE.AmbientLight(0x333333, 0.5);
+scene.add(ambientLight);
+var spotlight = new THREE.SpotLight(0xffff00,3);
+spotlight.angle = Math.PI / 8;
+spotlight.castShadow = true;
+spotlight.shadow.camera.left = -100;
+spotlight.shadow.camera.right = 100;
+spotlight.shadow.camera.top = 500;
+spotlight.shadow.camera.bottom = -100;
+spotlight.shadow.mapSize.width = 4096;
+spotlight.shadow.mapSize.height = 4096;
+spotlight.visible=false;
+scene.add(spotlight);
+const light = new THREE.DirectionalLight(0xffffff, 1.5);
+light.position.set(0, 50, 50);
+light.castShadow = true;
+light.shadow.camera.left = -100;
+light.shadow.camera.right = 100;
+light.shadow.camera.top = 500;
+light.shadow.camera.bottom = -100;
+light.shadow.mapSize.width = 4096;
+light.shadow.mapSize.height = 4096;
+scene.add(light);
+//INIZIALIZZAZIONE VARIABILI PER I TIPI DI OGGETTI DELLA MAPPA, MODALITA PRATICA, COLORI, AUDIO
+let platforms = [];
+let obstacles = [];
+let plane = [];
+let coins = [];
+let sfere = [];
+var player;
+var praticMode=false;
+var tentativi=1;
+var isInPratic=false;
+const colors = {
+    player: 0x38187c,
+    platform: 0x460da9,
+    obstacle: 0xe0017,
+    coin: 0xffff00,
+    plane: 0x1f2385,
+    sfera: 0xc4a484
+};
+var coinsachieved=[];
+var checkpoint=[];
+checkpoint.push(new THREE.Vector3(0.6, 8, 30));
+const backgroundMusic = document.getElementById('backgroundMusic');
+const backgroundMusicPratic = document.getElementById('backgroundMusicPratic');
+//CREAZIONE DEL PLAYER E INIZIALIZZAZIONE DELLA FISICA(VELOCITA, GRAVITA, BOUNCING FACTOR, SALTO E ROTAZIONE)
+const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+const material = new THREE.MeshLambertMaterial({ color: colors.player });
+player = new THREE.Mesh(geometry, material);
+player.position.set(0.6, 8, 30);
+player.castShadow = true;
+scene.add(player);
+const playerVelocity = new THREE.Vector3();
+const gravity = new THREE.Vector3(0, -0.14, 0);
+const bounceFactorplayer = 0.3;
+const bounceFactorSfere=0.8;
+let isPlayerRotatingBack = false;
+let savedPlayerVelocity = new THREE.Vector3();
+let savedRotation = null;
+let autoScrollActive = false;
+const speedSettings = {
+    autoScrollSpeed: 0.4,
+    lateralSpeed: 0.3
+};
+var jumpspeed=0.688
+//CREAZIONE DELLA MODALITA MIRROR PER IL CUBO E LA SFERA (MIRROR MATERIAL)
+const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256, {
+    format: THREE.RGBFormat,
+    generateMipmaps: true,
+    minFilter: THREE.LinearMipmapLinearFilter,
+    encoding: THREE.sRGBEncoding
+});
+const cubeCamera = new THREE.CubeCamera(1, 100, cubeRenderTarget);
+scene.add(cubeCamera);
+const mirrorMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 1,
+    roughness: 0,
+    envMap: cubeRenderTarget.texture
+});
+
+//INIZIALIZZAZIONI VARIABILI PER ZOOM E BOOLEANA PER CONTROLLI ORBIT IN MODALITA PAUSA 
+let zoomIn = false;
+let zoomOut = false;
+const zoomSpeed = 0.1;
+const minZoom = 1;
+const maxZoom = 2.5;
+var control=false;
+//ASSEGNAZIONE NOMI AI COINS PER LEGGEBILITA
+let mappatura = {
+    "Torus": "Gettone1",
+    "Torus001": "Gettone2",
+    "Torus002": "Gettone3"
+};
+//DEFINIZIONE DEGLI EVENTI DA TASTIERA
+const keys = {};
+document.addEventListener('keydown', (event) => {
+    keys[event.code]=true
+    if (event.key === 's' || event.key === 'S') {
+        checkpoint.push(player.position.clone());
+    }
+    if (event.key === 'r' || event.key === 'R') {
+        if(checkpoint.length>1){
+            checkpoint.pop();
+        }
+    }
+    if (event.code === 'Enter') {
+        document.getElementById('FineModal').style.display='none';
+        autoScrollActive = !autoScrollActive;
+        updateInfoModal();
+    }
+    if (event.key === 'z'|| event.key==='Z') {
+        zoomIn = true;
+    }
+    if (event.key === 'x' || event.key==='X') {
+        zoomOut = true;
+    }
+    if(event.key==='Control'){
+        control=true;
+    }
+});
+document.addEventListener('keyup', (event) => {
+    keys[event.code]=false
+    if (event.key === 'z') {
+        zoomIn = false;
+    }
+    if (event.key === 'x') {
+        zoomOut = false;
+    }
+    if(event.key==='Control'){
+        control=false;
+    }
+});
+//INIZIALIZZAZIONE LOADER PER LA MAPPA BLENDER
+const loader = new GLTFLoader();
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('./');
+loader.setDRACOLoader(dracoLoader);
+
+//CARICAMENTO MAPPA BLENDER        
+loader.load('./geometry_level_draco.glb', function (gltf) {
+    const model = gltf.scene;
+    scene.add(model);
+    model.traverse(function (node) {
+        if (node.isMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+            const boundingBox = new THREE.Box3().setFromObject(node);
+            const dimensions = new THREE.Vector3();
+            boundingBox.getSize(dimensions);
+            if (node.userData && node.userData.object_type) {
+                if (node.userData.object_type === 'piattaforma') {
+                    platforms.push([node, dimensions]);
+                } else if (node.userData.object_type === 'ostacolo') {
+                    obstacles.push([node, dimensions]);
+                } else if (node.userData.object_type === 'piano') {
+                    plane.push([node, dimensions]);
+                } else if (node.userData.object_type === 'gettone') {
+                    coins.push([node, dimensions]);
+                } else if (node.userData.object_type === 'sfera') {
+                    node.userData.initialPosition = node.position.clone();
+                    node.userData.velocity = new THREE.Vector3();
+                    sfere.push([node, new THREE.Vector3(),dimensions]);
+                }
+            }
+        }
+    }); 
+    updateMaterials();
+});
+//INIZIO FUNZIONI
+
+//FUNZIONE CHE PER OGNI ELEMENTO METTE IL COLORE O LA TEXTURE SE PRESENTE
+function updateMaterials() {
+  const updateNodeMaterial = (node, color, texture = null) => {
+    if (texture) {
+      node.material.map = texture;
+      node.material.color.set(0xffffff);
+    } else {
+      node.material.map = null;
+      node.material.color.set(color);
+    }
+    node.material.needsUpdate = true;
+  };
+
+  updateNodeMaterial(player, colors.player, player.material.map);
+  platforms.forEach(([node]) => updateNodeMaterial(node, colors.platform, node.material.map));
+  obstacles.forEach(([node]) => updateNodeMaterial(node, colors.obstacle, node.material.map));
+  plane.forEach(([node]) => updateNodeMaterial(node, colors.plane, node.material.map));
+  coins.forEach(([node]) => updateNodeMaterial(node, colors.coin, node.material.map));
+  sfere.forEach(([node]) => updateNodeMaterial(node, colors.sfera, node.material.map));
+}
+
+//FUNZIONE CHE CONTROLLA SE IL PLAYER POGGIA SU UNA PIATTAFORMA O SUL PIANO 
+function isPlayerOnGround() {
+
+    for (let i = 0; i < plane.length; i++) {
+        const planeBox = new THREE.Box3().setFromObject(plane[i][0]);
+        const playerBox = new THREE.Box3().setFromObject(player);
+        if (playerBox.intersectsBox(planeBox)) {
+            return true;
+        }
+    }
+    for (let i = 0; i < platforms.length; i++) {
+        const platformBox = new THREE.Box3().setFromObject(platforms[i][0]);
+        const playerBox = new THREE.Box3().setFromObject(player);
+        if (playerBox.intersectsBox(platformBox)) {
+            return true;
+        }
+    }
+    return false;
+}
+//FUNZIONE CHE RIMETTE IL PLAYER ALLA POSIZIONE INIZIALE E RESETTA TUTTE LE VARIABILI DELLA PARTITA 
+function resetPlayerPosition() {
+    backgroundMusic.currentTime = 0;
+    backgroundMusic.play();
+    coins.forEach(([coin, dimensions])=>{
+        coin.visible=true;
+    })
+    if(isInPratic==true){
+        tentativi=1;
+        isInPratic=false;
+    }
+    else{tentativi+=1;}
+    checkpoint=[];
+    checkpoint.push(new THREE.Vector3(0.6, 8, 30));
+    player.position.set(0.6, 8, 30);
+    playerVelocity.set(0, 0, 0); 
+    sfere.forEach(([sfera, dimensions]) => {
+        sfera.position.copy(sfera.userData.initialPosition);
+        sfera.userData.velocity.set(0, 0, 0); 
+    });
+    coinsachieved=[];
+}
+//FUNZIONE CHE RIMETTE IL PLAYER NELL ULTIMA POSIZIONE SALVATA E RESETTA TUTTE LE VARIABILI DELLA PARTITA
+function resetPlayerPositionPratic() {
+    coins.forEach(([coin, dimensions])=>{
+        coin.visible=true;
+    })
+    if(isInPratic==false){
+        tentativi=1;
+        isInPratic=true;
+    }
+    else{tentativi+=1;}
+    player.position.copy(checkpoint[checkpoint.length-1]);
+    playerVelocity.set(0, 0, 0); 
+    sfere.forEach(([sfera, dimensions]) => {
+        sfera.position.copy(sfera.userData.initialPosition);
+        sfera.userData.velocity.set(0, 0, 0); 
+    });
+}
+
+//FUNZIONE CHE GESTISCE IL MOVIMENTO DEL PLAYER
+function updatePlayerPosition() {
+    //PARTE DEL MOVIMENTO (SALTO,ROTAZIONE,SPOSTAMENTO)
+    if (autoScrollActive) {
+        if (savedPlayerVelocity.length() > 0) {
+            playerVelocity.copy(savedPlayerVelocity);
+            savedPlayerVelocity.set(0, 0, 0); 
+        }
+        if (savedRotation) {
+            player.rotation.copy(savedRotation);
+            savedRotation = null; 
+        }
+        playerVelocity.z = -speedSettings.autoScrollSpeed;
+        if (keys['ArrowLeft']) {
+            playerVelocity.x = -speedSettings.lateralSpeed;
+        } else if (keys['ArrowRight']) {
+            playerVelocity.x = speedSettings.lateralSpeed;
+        } else {
+            playerVelocity.x = 0;
+        }
+        if (keys['Space'] && isPlayerOnGround()) {
+            playerVelocity.y = jumpspeed; 
+        } else {
+            playerVelocity.y += gravity.y; 
+        }  
+        const isPlayerInAir = !isPlayerOnGround();
+        if (isPlayerInAir) {
+            const rotationAxis = new THREE.Vector3(-1, 0, 0); 
+            player.rotateOnWorldAxis(rotationAxis, 0.1);
+            isPlayerRotatingBack = true;
+        } else if (isPlayerRotatingBack) {
+            player.rotation.set(0, 0, 0);
+            isPlayerRotatingBack = false;
+        }
+    } else {
+        if (savedPlayerVelocity.length() === 0) {
+            savedPlayerVelocity.copy(playerVelocity);
+        }
+        if (!savedRotation) {
+            savedRotation = player.rotation.clone();
+        }
+        playerVelocity.set(0, 0, 0);
+    }
+    player.position.add(playerVelocity);
+    //PARTE DELLA GESTIONE DELLE COLLISIONI
+    plane.forEach(([planeNode, dimensions]) => {
+        const planeBox = new THREE.Box3().setFromObject(planeNode);
+        const playerBox = new THREE.Box3().setFromObject(player);
+        if (playerBox.intersectsBox(planeBox)) {
+            if (playerVelocity.y < 0) { 
+                playerVelocity.y = -playerVelocity.y * bounceFactorplayer;
+            }
+            player.position.y = planeBox.max.y + 0.4;
+        }
+    });
+    coins.forEach(([coinNode, dimensions]) => {
+        const coinBox = new THREE.Box3().setFromObject(coinNode);
+        const playerBox = new THREE.Box3().setFromObject(player);
+        if (playerBox.intersectsBox(coinBox)) {
+            if(!coinsachieved.includes(coinNode.name)){
+                coinsachieved.push(coinNode.name)
+            }
+            coinNode.visible=false;
+            if(coinsachieved.includes("Torus002")){
+                updateFineModal();
+            }
+        }
+    });
+    platforms.forEach(([platformNode, dimensions]) => {
+        const platformBox = new THREE.Box3().setFromObject(platformNode);
+        const playerBox = new THREE.Box3().setFromObject(player);
+        if (playerBox.intersectsBox(platformBox)) {
+            const playerTop = player.position.y + playerBox.getSize(new THREE.Vector3()).y / 2;
+            const platformTop = platformNode.position.y + dimensions.y / 2;
+            if (playerTop >= platformTop) {
+                player.position.y = platformTop + playerBox.getSize(new THREE.Vector3()).y / 2;
+                playerVelocity.y = 0;
+            } else {
+                if(praticMode==false){
+                    resetPlayerPosition();}
+                else{resetPlayerPositionPratic();}
+                
+            }
+        }
+    });
+    obstacles.forEach(([obstacleNode, dimensions]) => {
+        const obstacleBox = new THREE.Box3().setFromObject(obstacleNode);
+        const playerBox = new THREE.Box3().setFromObject(player);
+        if (playerBox.intersectsBox(obstacleBox)) {
+            if(praticMode==false){
+                resetPlayerPosition();}
+                else{resetPlayerPositionPratic();}
+        }
+    });
+    sfere.forEach(([sfera,savedSphereVelocity, dimensions]) => {
+                const sferaBox = new THREE.Box3().setFromObject(sfera);
+                const playerBox = new THREE.Box3().setFromObject(player);
+                if (playerBox.intersectsBox(sferaBox)) {
+                    if(praticMode==false){
+                        resetPlayerPosition();}
+                else{resetPlayerPositionPratic();}
+                }
+            });
+    if (player.position.y < -10) { 
+        if(praticMode==false){
+            resetPlayerPosition();}
+                else{resetPlayerPositionPratic();} 
+    }
+}
+
+//FUNZIONE CHE GESTISCE IL MOVIMENTO DELLE SFERE (QUANDO IL PLAYER RAGGIUNGE MINDISTANCE LE SFERE CADONO RIMBALZANDO)
+function updateSpheres() {
+    const minDistance = 10;
+    sfere.forEach(([sfera, savedSphereVelocity,dimensions]) => {
+        const distance = player.position.distanceTo(sfera.position);
+        if(autoScrollActive){
+            if (savedSphereVelocity.length() > 0) {
+                sfera.userData.velocity.copy(savedSphereVelocity);
+                savedSphereVelocity.set(0, 0, 0);
+            }
+            if (distance < minDistance) {
+                if (!sfera.userData.velocity) {
+                    sfera.userData.velocity = new THREE.Vector3(0, -0.1, 0);
+                }
+                sfera.userData.velocity.y += gravity.y;
+                sfera.position.add(sfera.userData.velocity);
+            }
+            platforms.forEach(([platform, platformDimensions]) => {
+                const platformBox = new THREE.Box3().setFromObject(platform);
+                const sferaBox = new THREE.Box3().setFromObject(sfera);
+                if (sferaBox.intersectsBox(platformBox)) {
+                    sfera.position.y = platformBox.max.y + dimensions.y / 2;
+                    sfera.userData.velocity.y *= -1 * bounceFactorSfere; 
+                }
+            });
+        }
+        else{
+            
+            if (savedSphereVelocity.length() === 0) {
+                savedSphereVelocity.copy(sfera.userData.velocity);
+            }
+            sfera.userData.velocity.set(0, 0, 0); 
+        }
+        });
+}
+
+//FUNZIONE CHE GESTISCE LA CAMERA, I CONTROLLI SU ESSA(SPOSTAMENTO E ZOOM) E LA CUBE CAMERA PER IL MIRRORING     
+function updateCamera(){
+    camera.position.z = player.position.z + 10;
+    camera.position.y = player.position.y + 5;
+
+    const cameraX = camera.position.x;
+    controls.target.set(player.position.x, player.position.y, player.position.z);
+    
+
+    player.visible = false;
+    cubeCamera.position.copy(player.position);
+    cubeCamera.update(renderer, scene);
+    player.visible = true;
+
+    camera.position.x = cameraX;
+
+    if (zoomIn) {
+        camera.zoom = Math.min(maxZoom, camera.zoom + zoomSpeed);
+        camera.updateProjectionMatrix();
+    }
+    if (zoomOut) {
+        camera.zoom = Math.max(minZoom, camera.zoom - zoomSpeed);
+        camera.updateProjectionMatrix();
+    }
+
+    controls.update();
+}
+//FUNZIONE CHE FA RUOTARE I COINS
+function updatecoins(){
+    coins.forEach(([coin, dimensions])=>{
+        if(autoScrollActive){
+            coin.rotation.z+=0.5;
+        }
+        else{
+            coin.rotation.z+=0;
+        }
+    })
+}
+//FUNZIONE CHE DISABILITA L INTERCETTO DEL MOUSE DA PARTE DEL MODAL
+function pause_pointer_fix(){
+    const infoModal = document.getElementById('infoModal');
+    if(control==true){
+    infoModal.style.pointerEvents='none';
+    }
+    else{
+    infoModal.style.pointerEvents='auto';
+    }
+}
+//FUNZIONE CHE FA SI CHE LA SPOTLIGHT SEGUA IL PLAYER
+function spotlight_player(){
+    spotlight.target=player
+    spotlight.position.copy(player.position)
+    spotlight.position.y+=8
+}
+//FUNZIONE CHE BOOSTA LA VELOCITA FINALE PER SALTARE L ULTIMO OSTACOLO
+function player_final_velocity(){
+    if(player.position.z<-428){
+        jumpspeed=0.8
+    }
+    else{
+        jumpspeed=0.688
+    }
+}
+//FUNZIONE CHE GESTISCE L AUDIO
+function audio(){
+    if(autoScrollActive==false){
+        backgroundMusic.pause()
+        backgroundMusicPratic.pause()
+    }
+    else{
+        if(isInPratic==true){
+            backgroundMusicPratic.play()
+            backgroundMusic.pause()
+        }
+        else{
+            backgroundMusic.play()
+            backgroundMusicPratic.pause()
+        }
+        }
+}
+
+//FUNZIONE CHE ANIMA IL GIOCO
+function animate() {
+    
+    requestAnimationFrame(animate);
+    audio();
+    pause_pointer_fix();
+    player_final_velocity();
+    spotlight_player();
+    updatePlayerPosition();
+    updateCamera();
+    updateSpheres();
+    updatecoins();
+    renderer.render(scene, camera);
+}
+
+//FUNZIONE CHE POPOLA E MOSTRA IL MODAL DELLA PAUSA
+function updateInfoModal() {
+  const infoModal = document.getElementById('infoModal');
+  const tokensAchievedEl = document.getElementById('tokensAchieved');
+  const practiceModeEl = document.getElementById('practiceMode');
+  const attemptsEl = document.getElementById('attempts');
+  const nicknameEl = document.getElementById('nickname');
+  
+  if (!autoScrollActive) {
+    let arraySostituito = coinsachieved.map(valore => mappatura[valore] || valore);
+    tokensAchievedEl.textContent = 'Tokens Achieved: ' + arraySostituito.join(', ');
+    practiceModeEl.textContent = 'Practice Mode: ' + (praticMode ? 'Active' : 'Inactive');
+    attemptsEl.textContent = 'Attempts: ' + tentativi;
+    nicknameEl.textContent = 'Nickname: ' + sessionStorage.getItem('nickname');
+    
+    infoModal.style.display = 'block';
+  } else {
+    infoModal.style.display = 'none';
+  }
+}
+//FUNZIONE CHE POPOLA E MOSTRA IL MODAL DI FINE PARTITA
+function updateFineModal() {
+  var infoModal1 = document.getElementById('FineModal');
+  const tokensAchievedEl = document.getElementById('tokensAchievedF');
+  const practiceModeEl = document.getElementById('practiceModeF');
+  const attemptsEl = document.getElementById('attemptsF');
+  const nicknameEl = document.getElementById('nicknameF');
+  let arraySostituito = coinsachieved.map(valore => mappatura[valore] || valore);
+    tokensAchievedEl.textContent = 'Tokens Achieved: ' + arraySostituito.join(', ');
+    practiceModeEl.textContent = 'Practice Mode: ' + (praticMode ? 'Active' : 'Inactive');
+    attemptsEl.textContent = 'Attempts: ' + tentativi;
+    nicknameEl.textContent = 'Nickname: ' + sessionStorage.getItem('nickname');
+    infoModal1.style.display = 'block';
+    autoScrollActive=false;
+        resetPlayerPosition();
+        tentativi=1;
+        praticMode=false;
+}
+//FUNZIONE CHE METTE LA TEXTURE CARICATA A TUTTI GLI ELEMENTI DI UN TIPO
+function loadTextureForType(type, file) {
+    const reader = new FileReader();
+    reader.onload = function (event) {
+        const texture = textureLoader.load(event.target.result, () => {
+            const updateMaterialWithTexture = (items) => {
+                items.forEach(([node]) => {
+                    node.material.map = texture;
+                    node.material.color.set(0xffffff);
+                    node.material.needsUpdate = true;
+                });
+            };
+            if (type === 'player') {
+                player.material.map = texture;
+                player.material.color.set(0xffffff);
+                player.material.needsUpdate = true;
+            } else {
+                if (type === 'platform') updateMaterialWithTexture(platforms);
+                if (type === 'obstacle') updateMaterialWithTexture(obstacles);
+                if (type === 'coin') updateMaterialWithTexture(coins);
+                if (type === 'plane') updateMaterialWithTexture(plane);
+                if (type === 'sfera') updateMaterialWithTexture(sfere);
+            }
+        });
+    };
+    reader.readAsDataURL(file);
+}
+
+//FUNZIONE CHE RIMUOVE LA TEXTURE A TUTTI GLI ELEMENTI DI UN TIPO
+function removeTexture(type) {
+    const resetMaterial = (items, color) => {
+        items.forEach(([node]) => {
+            node.material.map = null;
+            node.material.color.set(color);
+            node.material.needsUpdate = true;
+        });
+    };
+    if (type === 'player') {
+        player.material.map = null;
+        player.material.color.set(colors.player);
+        player.material.needsUpdate = true;
+    } else {
+        if (type === 'platform') resetMaterial(platforms, colors.platform);
+        if (type === 'obstacle') resetMaterial(obstacles, colors.obstacle);
+        if (type === 'coin') resetMaterial(coins, colors.coin);
+        if (type === 'plane') resetMaterial(plane, colors.plane);
+        if (type === 'sfera') resetMaterial(sfere, colors.sfera);
+    }
+}
+//FUNZIONE PER SELEZIONARE UN FILE 
+function selectFile(type) {
+    const fileInput = document.getElementById('fileInput');
+    fileInput.onchange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            loadTextureForType(type, file);
+        }
+        fileInput.value = '';
+    };
+    fileInput.click();
+}
+
+//ANIMA
+animate();
+
+
+//GESTIONE DELLA GUI
+const gui = new dat.GUI();
+gui.add({praticMode:false}, 'praticMode').name('Pratic Mode').onChange((value) => {
+    praticMode = value;
+});
+const playerFolder = gui.addFolder('Player');
+playerFolder.addColor(colors, 'player').onChange(() => updateMaterials());
+playerFolder.add({ isMirror: false }, 'isMirror').name('Mirror').onChange((value) => {
+    player.material = value ? mirrorMaterial : new THREE.MeshLambertMaterial({ color: colors.player });
+});
+
+const platformFolder = gui.addFolder('Platform');
+platformFolder.addColor(colors, 'platform').onChange(() => updateMaterials());
+const obstacleFolder = gui.addFolder('Obstacle');
+obstacleFolder.addColor(colors, 'obstacle').onChange(() => updateMaterials());
+const planeFolder = gui.addFolder('Plane');
+planeFolder.addColor(colors, 'plane').onChange(() => updateMaterials());
+const coinFolder = gui.addFolder('Coin');
+coinFolder.addColor(colors, 'coin').onChange(() => updateMaterials());
+const sferaFolder = gui.addFolder('Sfera');
+sferaFolder.addColor(colors, 'sfera').onChange(() => updateMaterials());
+sferaFolder.add({ isMirror: false }, 'isMirror').name('Mirror').onChange((value) => {
+sfere.forEach(([node]) => {
+    node.material = value ? mirrorMaterial.clone() : new THREE.MeshLambertMaterial({ color: colors.sfera });
+});
+});
+const speedFolder = gui.addFolder('Speed');
+speedFolder.add(speedSettings, 'lateralSpeed', 0, 0.5, 0.01).name('Lateral Speed');
+const textureFolder = gui.addFolder('Textures');
+
+const lightFolder = gui.addFolder('Light');
+lightFolder.add({ spot: false }, 'spot').name('Spotlight').onChange((value) => {
+    spotlight.visible = value;
+});
+lightFolder.add({ dir: true }, 'dir').name('Light').onChange((value) => {
+    light.visible = value;
+});
+textureFolder.add({ loadPlayerTexture: () => selectFile('player') }, 'loadPlayerTexture').name('Load Player Texture');
+textureFolder.add({ removePlayerTexture: () => removeTexture('player') }, 'removePlayerTexture').name('Remove Player Texture');
+textureFolder.add({ loadPlatformTexture: () => selectFile('platform') }, 'loadPlatformTexture').name('Load Platform Texture');
+textureFolder.add({ removePlatformTexture: () => removeTexture('platform') }, 'removePlatformTexture').name('Remove Platform Texture');
+textureFolder.add({ loadObstacleTexture: () => selectFile('obstacle') }, 'loadObstacleTexture').name('Load Obstacle Texture');
+textureFolder.add({ removeObstacleTexture: () => removeTexture('obstacle') }, 'removeObstacleTexture').name('Remove Obstacle Texture');
+textureFolder.add({ loadCoinTexture: () => selectFile('coin') }, 'loadCoinTexture').name('Load Coin Texture');
+textureFolder.add({ removeCoinTexture: () => removeTexture('coin') }, 'removeCoinTexture').name('Remove Coin Texture');
+textureFolder.add({ loadPlaneTexture: () => selectFile('plane') }, 'loadPlaneTexture').name('Load Plane Texture');
+textureFolder.add({ removePlaneTexture: () => removeTexture('plane') }, 'removePlaneTexture').name('Remove Plane Texture');
+textureFolder.add({ loadSferaTexture: () => selectFile('sfera') }, 'loadSferaTexture').name('Load Sfera Texture');
+textureFolder.add({ removeSferaTexture: () => removeTexture('sfera') }, 'removeSferaTexture').name('Remove Sfera Texture');
+document.getElementById('guiContainer').appendChild(gui.domElement);
+gui.close();
+
+//RESIZE
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+    </script>
+</body>
+</html>
