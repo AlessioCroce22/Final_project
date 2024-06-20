@@ -102,7 +102,9 @@ window.onload = function() {
     }
   }
 }
+
 //INIZIALIZZAZIONE THREE DI SCENA, CAMERA, RENDERER, CONTROLLI SULLA VISUALE(ORBIT)
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(5, 5, 30);
@@ -116,12 +118,16 @@ const textureLoader = new THREE.TextureLoader();
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.8;
+
 //CARICAMENTO SFONDO
+
 textureLoader.load('sfondo.jpg', function(texture) {
     scene.background = texture;
     scene.environment=texture;
 });
+
 //CARICAMENTO LUCI (AMBIENT, DIRECTIONAL E SPOTLIGHT CON RELATIVE OMBRE)
+
 const ambientLight = new THREE.AmbientLight(0x333333, 0.5);
 scene.add(ambientLight);
 var spotlight = new THREE.SpotLight(0xffff00,3);
@@ -145,7 +151,9 @@ light.shadow.camera.bottom = -100;
 light.shadow.mapSize.width = 4096;
 light.shadow.mapSize.height = 4096;
 scene.add(light);
+
 //INIZIALIZZAZIONE VARIABILI PER I TIPI DI OGGETTI DELLA MAPPA, MODALITA PRATICA, COLORI, AUDIO
+
 let platforms = [];
 let obstacles = [];
 let plane = [];
@@ -168,7 +176,9 @@ var checkpoint=[];
 checkpoint.push(new THREE.Vector3(0.6, 8, 30));
 const backgroundMusic = document.getElementById('backgroundMusic');
 const backgroundMusicPratic = document.getElementById('backgroundMusicPratic');
+
 //CREAZIONE DEL PLAYER E INIZIALIZZAZIONE DELLA FISICA(VELOCITA, GRAVITA, BOUNCING FACTOR, SALTO E ROTAZIONE)
+
 const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
 const material = new THREE.MeshLambertMaterial({ color: colors.player });
 player = new THREE.Mesh(geometry, material);
@@ -188,7 +198,9 @@ const speedSettings = {
     lateralSpeed: 0.3
 };
 var jumpspeed=0.688
+
 //CREAZIONE DELLA MODALITA MIRROR PER IL CUBO E LA SFERA (MIRROR MATERIAL)
+
 const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256, {
     format: THREE.RGBFormat,
     generateMipmaps: true,
@@ -205,19 +217,24 @@ const mirrorMaterial = new THREE.MeshStandardMaterial({
 });
 
 //INIZIALIZZAZIONI VARIABILI PER ZOOM E BOOLEANA PER CONTROLLI ORBIT IN MODALITA PAUSA 
+
 let zoomIn = false;
 let zoomOut = false;
 const zoomSpeed = 0.1;
 const minZoom = 1;
 const maxZoom = 2.5;
 var control=false;
+
 //ASSEGNAZIONE NOMI AI COINS PER LEGGEBILITA
+
 let mappatura = {
     "Torus": "Gettone1",
     "Torus001": "Gettone2",
     "Torus002": "Gettone3"
 };
+
 //DEFINIZIONE DEGLI EVENTI DA TASTIERA
+
 const keys = {};
 document.addEventListener('keydown', (event) => {
     keys[event.code]=true
@@ -256,13 +273,16 @@ document.addEventListener('keyup', (event) => {
         control=false;
     }
 });
+
 //INIZIALIZZAZIONE LOADER PER LA MAPPA BLENDER
+
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('./');
 loader.setDRACOLoader(dracoLoader);
 
 //CARICAMENTO MAPPA BLENDER        
+
 loader.load('./geometry_level_draco.glb', function (gltf) {
     const model = gltf.scene;
     scene.add(model);
@@ -292,9 +312,11 @@ loader.load('./geometry_level_draco.glb', function (gltf) {
     }); 
     updateMaterials();
 });
+
 //INIZIO FUNZIONI
 
 //FUNZIONE CHE PER OGNI ELEMENTO METTE IL COLORE O LA TEXTURE SE PRESENTE
+
 function updateMaterials() {
   const updateNodeMaterial = (node, color, texture = null) => {
     if (texture) {
@@ -316,6 +338,7 @@ function updateMaterials() {
 }
 
 //FUNZIONE CHE CONTROLLA SE IL PLAYER POGGIA SU UNA PIATTAFORMA O SUL PIANO 
+
 function isPlayerOnGround() {
 
     for (let i = 0; i < plane.length; i++) {
@@ -334,7 +357,9 @@ function isPlayerOnGround() {
     }
     return false;
 }
+
 //FUNZIONE CHE RIMETTE IL PLAYER ALLA POSIZIONE INIZIALE E RESETTA TUTTE LE VARIABILI DELLA PARTITA 
+
 function resetPlayerPosition() {
     backgroundMusic.currentTime = 0;
     backgroundMusic.play();
@@ -356,7 +381,9 @@ function resetPlayerPosition() {
     });
     coinsachieved=[];
 }
+
 //FUNZIONE CHE RIMETTE IL PLAYER NELL ULTIMA POSIZIONE SALVATA E RESETTA TUTTE LE VARIABILI DELLA PARTITA
+
 function resetPlayerPositionPratic() {
     coins.forEach(([coin, dimensions])=>{
         coin.visible=true;
@@ -375,8 +402,11 @@ function resetPlayerPositionPratic() {
 }
 
 //FUNZIONE CHE GESTISCE IL MOVIMENTO DEL PLAYER
+
 function updatePlayerPosition() {
+    
     //PARTE DEL MOVIMENTO (SALTO,ROTAZIONE,SPOSTAMENTO)
+    
     if (autoScrollActive) {
         if (savedPlayerVelocity.length() > 0) {
             playerVelocity.copy(savedPlayerVelocity);
@@ -418,7 +448,9 @@ function updatePlayerPosition() {
         playerVelocity.set(0, 0, 0);
     }
     player.position.add(playerVelocity);
+    
     //PARTE DELLA GESTIONE DELLE COLLISIONI
+    
     plane.forEach(([planeNode, dimensions]) => {
         const planeBox = new THREE.Box3().setFromObject(planeNode);
         const playerBox = new THREE.Box3().setFromObject(player);
@@ -485,6 +517,7 @@ function updatePlayerPosition() {
 }
 
 //FUNZIONE CHE GESTISCE IL MOVIMENTO DELLE SFERE (QUANDO IL PLAYER RAGGIUNGE MINDISTANCE LE SFERE CADONO RIMBALZANDO)
+
 function updateSpheres() {
     const minDistance = 10;
     sfere.forEach(([sfera, savedSphereVelocity,dimensions]) => {
@@ -521,6 +554,7 @@ function updateSpheres() {
 }
 
 //FUNZIONE CHE GESTISCE LA CAMERA, I CONTROLLI SU ESSA(SPOSTAMENTO E ZOOM) E LA CUBE CAMERA PER IL MIRRORING     
+
 function updateCamera(){
     camera.position.z = player.position.z + 10;
     camera.position.y = player.position.y + 5;
@@ -547,7 +581,9 @@ function updateCamera(){
 
     controls.update();
 }
+
 //FUNZIONE CHE FA RUOTARE I COINS
+
 function updatecoins(){
     coins.forEach(([coin, dimensions])=>{
         if(autoScrollActive){
@@ -558,7 +594,9 @@ function updatecoins(){
         }
     })
 }
+
 //FUNZIONE CHE DISABILITA L INTERCETTO DEL MOUSE DA PARTE DEL MODAL
+
 function pause_pointer_fix(){
     const infoModal = document.getElementById('infoModal');
     if(control==true){
@@ -568,13 +606,17 @@ function pause_pointer_fix(){
     infoModal.style.pointerEvents='auto';
     }
 }
+
 //FUNZIONE CHE FA SI CHE LA SPOTLIGHT SEGUA IL PLAYER
+
 function spotlight_player(){
     spotlight.target=player
     spotlight.position.copy(player.position)
     spotlight.position.y+=8
 }
+
 //FUNZIONE CHE BOOSTA LA VELOCITA FINALE PER SALTARE L ULTIMO OSTACOLO
+
 function player_final_velocity(){
     if(player.position.z<-428){
         jumpspeed=0.8
@@ -583,7 +625,9 @@ function player_final_velocity(){
         jumpspeed=0.688
     }
 }
+
 //FUNZIONE CHE GESTISCE L AUDIO
+
 function audio(){
     if(autoScrollActive==false){
         backgroundMusic.pause()
@@ -602,6 +646,7 @@ function audio(){
 }
 
 //FUNZIONE CHE ANIMA IL GIOCO
+
 function animate() {
     
     requestAnimationFrame(animate);
@@ -617,6 +662,7 @@ function animate() {
 }
 
 //FUNZIONE CHE POPOLA E MOSTRA IL MODAL DELLA PAUSA
+
 function updateInfoModal() {
   const infoModal = document.getElementById('infoModal');
   const tokensAchievedEl = document.getElementById('tokensAchieved');
@@ -636,7 +682,9 @@ function updateInfoModal() {
     infoModal.style.display = 'none';
   }
 }
+
 //FUNZIONE CHE POPOLA E MOSTRA IL MODAL DI FINE PARTITA
+
 function updateFineModal() {
   var infoModal1 = document.getElementById('FineModal');
   const tokensAchievedEl = document.getElementById('tokensAchievedF');
@@ -654,7 +702,9 @@ function updateFineModal() {
         tentativi=1;
         praticMode=false;
 }
+
 //FUNZIONE CHE METTE LA TEXTURE CARICATA A TUTTI GLI ELEMENTI DI UN TIPO
+
 function loadTextureForType(type, file) {
     const reader = new FileReader();
     reader.onload = function (event) {
@@ -683,6 +733,7 @@ function loadTextureForType(type, file) {
 }
 
 //FUNZIONE CHE RIMUOVE LA TEXTURE A TUTTI GLI ELEMENTI DI UN TIPO
+
 function removeTexture(type) {
     const resetMaterial = (items, color) => {
         items.forEach(([node]) => {
@@ -703,7 +754,9 @@ function removeTexture(type) {
         if (type === 'sfera') resetMaterial(sfere, colors.sfera);
     }
 }
+
 //FUNZIONE PER SELEZIONARE UN FILE 
+
 function selectFile(type) {
     const fileInput = document.getElementById('fileInput');
     fileInput.onchange = (event) => {
@@ -717,10 +770,12 @@ function selectFile(type) {
 }
 
 //ANIMA
+
 animate();
 
 
 //GESTIONE DELLA GUI
+
 const gui = new dat.GUI();
 gui.add({praticMode:false}, 'praticMode').name('Pratic Mode').onChange((value) => {
     praticMode = value;
@@ -773,6 +828,7 @@ document.getElementById('guiContainer').appendChild(gui.domElement);
 gui.close();
 
 //RESIZE
+
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
