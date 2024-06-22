@@ -563,10 +563,10 @@ function updateCamera(){
     controls.target.set(player.position.x, player.position.y, player.position.z);
     
 
-    player.visible = false;
+    
     cubeCamera.position.copy(player.position);
     cubeCamera.update(renderer, scene);
-    player.visible = true;
+    
 
     camera.position.x = cameraX;
 
